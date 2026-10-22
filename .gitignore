@@ -1,9 +1,11 @@
 # python
-pycache/
+__pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 .venv/
@@ -17,20 +19,19 @@ env/
 # Environment variables and secrets
 .env
 
-# downloaded and generated data
-flower_photos/
-flower_photos_augmented/
-data/
-
 # Model artifacts
 models/
 *.keras
 *.h5
 
-#MLflow outputs
+# Hydra outputs
+outputs/
+multirun/
+
+# MLflow outputs
 mlruns/
 mlartifacts/
 mlflow.db
 
-# DVC local cache
+# DVC (data itself is ignored via DVC-generated .gitignore files)
 .dvc/cache/

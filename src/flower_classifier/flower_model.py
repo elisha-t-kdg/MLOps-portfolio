@@ -5,7 +5,7 @@ from tensorflow import keras
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from flower_data import HEIGHT, WIDTH, get_augmented_data_dir, load_datasets
+from flower_classifier.flower_data import HEIGHT, WIDTH, get_augmented_data_dir, load_datasets
 
 
 def build_model():
