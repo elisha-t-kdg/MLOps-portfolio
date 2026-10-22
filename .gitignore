@@ -1,0 +1,36 @@
+# python
+pycache/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE settings
+.idea/
+.vscode/
+
+# Environment variables and secrets
+.env
+
+# downloaded and generated data
+flower_photos/
+flower_photos_augmented/
+data/
+
+# Model artifacts
+models/
+*.keras
+*.h5
+
+#MLflow outputs
+mlruns/
+mlartifacts/
+mlflow.db
+
+# DVC local cache
+.dvc/cache/
