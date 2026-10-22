@@ -1,0 +1,24 @@
+[project]
+name = "mlops-portfolio"
+version = "0.1.0"
+description = "An MLOps flower classification project"
+requires-python = ">=3.11"
+dependencies = [
+    "tensorflow>=2.21",
+    "numpy",
+    "pillow",
+    "opencv-python-headless",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "hydra-core",
+    "mlflow",
+    "dvc",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
