@@ -4,13 +4,13 @@ import pathlib
 
 import cv2
 import hydra
-import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import tensorflow as tf
 import yaml
-from keras.layers import Dense, Rescaling
+from keras.layers import Dense, Dropout, Rescaling
 from keras.optimizers import Adam
+from matplotlib.figure import Figure
 from omegaconf import DictConfig, OmegaConf
 from sklearn.metrics import ConfusionMatrixDisplay, classification_report, confusion_matrix
 from tensorflow import keras
@@ -35,7 +35,9 @@ def build_model(model_cfg):
     # MobileNetV2 was trained on pixels in [-1, 1]; our images are in [0, 255].
     dnn_model.add(Rescaling(1.0 / 127.5, offset=-1.0))
     dnn_model.add(imported_model)
+
     dnn_model.add(Dense(model_cfg.dense_units, activation='relu'))
+    dnn_model.add(Dropout(model_cfg.dropout))
     dnn_model.add(Dense(model_cfg.num_classes, activation='softmax'))
 
     dnn_model.compile(optimizer=Adam(learning_rate=model_cfg.learning_rate),
@@ -43,14 +45,22 @@ def build_model(model_cfg):
     return dnn_model
 
 
-def train_model(dnn_model, train_set, validation_set, epochs):
-    """Train the model and return the training history."""
-    history = dnn_model.fit(
+def train_model(dnn_model, train_set, validation_set, epochs, patience=3, monitor="val_loss"):
+    """Train the model with early stopping and return the training history.
+
+    Training stops when `monitor` has not improved for `patience` epochs, and the weights
+    of the best epoch are restored, so the returned model is the best one, not the last one.
+    """
+    early_stopping = keras.callbacks.EarlyStopping(
+        monitor=monitor, patience=patience, restore_best_weights=True
+    )
+
+    return dnn_model.fit(
         train_set,
         validation_data=validation_set,
-        epochs=epochs
+        epochs=epochs,
+        callbacks=[early_stopping],
     )
-    return history
 
 
 def evaluate_model(dnn_model, test_set, image_cat):
@@ -101,7 +111,8 @@ def log_training_history(history):
 def plot_training_history(history):
     """Plot the training and validation loss and accuracy per epoch."""
     epochs = range(1, len(history.history["loss"]) + 1)
-    fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(10, 4))
+    fig = Figure(figsize=(10, 4))
+    ax_loss, ax_acc = fig.subplots(1, 2)
 
     ax_loss.plot(epochs, history.history["loss"], marker="o", label="train")
     ax_loss.plot(epochs, history.history["val_loss"], marker="o", label="validation")
@@ -119,10 +130,13 @@ def plot_training_history(history):
 
 def plot_confusion_matrix(matrix, image_cat):
     """Plot the confusion matrix as a heatmap (rows = true class, columns = predicted class)."""
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig = Figure(figsize=(6, 5))
+    ax = fig.subplots()
+
     ConfusionMatrixDisplay(matrix, display_labels=image_cat).plot(
         ax=ax, cmap="Blues", colorbar=False, xticks_rotation=45
     )
+
     ax.set_title("Confusion matrix (test set)")
     fig.tight_layout()
     return fig
@@ -165,9 +179,20 @@ def main(cfg: DictConfig):
         mlflow.set_tag("data_version", get_data_version(cfg.data.processed_dir))
 
         train_set, validation_set, test_set, image_cat = load_datasets(cfg.data, cfg.seed)
+        keras.utils.set_random_seed(cfg.seed)
         dnn_model = build_model(cfg.model)
-        history = train_model(dnn_model, train_set, validation_set, cfg.model.epochs)
+
+        early_stopping = cfg.model.early_stopping
+        history = train_model(
+            dnn_model, train_set, validation_set, cfg.model.epochs,
+            patience=early_stopping.patience, monitor=early_stopping.monitor,
+        )
+
         log_training_history(history)
+        mlflow.log_metrics({
+            "epochs_trained": len(history.history["loss"]),
+            "best_epoch": int(np.argmin(history.history[early_stopping.monitor])) + 1,
+        })
         mlflow.log_figure(plot_training_history(history), "plots/training_history.png")
 
         results = evaluate_model(dnn_model, test_set, image_cat)
@@ -180,7 +205,6 @@ def main(cfg: DictConfig):
             "plots/confusion_matrix.png",
         )
         mlflow.log_text(results["report"], "classification_report.txt")
-        plt.close("all")
 
         mlflow.keras.log_model(dnn_model, name="model")
 

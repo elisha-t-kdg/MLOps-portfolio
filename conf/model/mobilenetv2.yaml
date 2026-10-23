@@ -6,6 +6,10 @@ weights: imagenet
 pooling: avg
 trainable_backbone: false
 dense_units: 512
+dropout: 0.3
 num_classes: 5
 learning_rate: 0.001
-epochs: 10
+epochs: 15
+early_stopping:
+  monitor: val_loss
+  patience: 3

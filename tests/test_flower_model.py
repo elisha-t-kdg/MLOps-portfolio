@@ -30,6 +30,7 @@ def model_cfg():
         "pooling": "avg",
         "trainable_backbone": False,
         "dense_units": 8,
+        "dropout": 0.3,
         "num_classes": len(CLASSES),
         "learning_rate": 0.001,
     })
@@ -145,3 +146,20 @@ def test_log_training_history(tmp_path):
     history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "val_accuracy")
 
     assert [(m.step, m.value) for m in history] == [(0, 0.4), (1, 0.7), (2, 0.65)]
+
+
+def test_build_model_has_dropout(model_cfg):
+    model = build_model(model_cfg)
+    dropout_layers = [layer for layer in model.layers if isinstance(layer, tf.keras.layers.Dropout)]
+
+    assert [layer.rate for layer in dropout_layers] == [0.3]
+
+
+def test_train_model_stops_early(model_cfg, tiny_dataset):
+    # With learning rate 0 the weights never change, so val_loss never improves:
+    # early stopping must stop after 1 + patience epochs instead of running all 10.
+    model_cfg.learning_rate = 0.0
+    model = build_model(model_cfg)
+    history = train_model(model, tiny_dataset, tiny_dataset, epochs=10, patience=2)
+
+    assert len(history.history["loss"]) == 3
