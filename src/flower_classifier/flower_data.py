@@ -14,10 +14,20 @@ from tensorflow.keras import layers
 
 
 def build_augmentation(data_cfg):
-    """Data augmentation used to generate extra training images: random rotation + random crop."""
+    """Build the augmentation pipeline that creates realistic variations of a training image.
+
+    Flip, rotation, zoom and crop simulate different camera positions; brightness and
+    contrast simulate different lighting. Hue is deliberately NOT changed, because colour
+    is one of the main features that separates the flower classes.
+    """
+    aug = data_cfg.augmentation
     return keras.Sequential([
-        layers.RandomRotation(data_cfg.augmentation.rotation),
+        layers.RandomFlip(aug.flip),
+        layers.RandomRotation(aug.rotation),
+        layers.RandomZoom(aug.zoom),
         layers.RandomCrop(data_cfg.image_height, data_cfg.image_width),
+        layers.RandomBrightness(aug.brightness, value_range=(0, 255)),
+        layers.RandomContrast(aug.contrast),
     ], name="data_augmentation")
 
 
@@ -51,6 +61,8 @@ def augment_and_save_dataset(data_cfg, seed):
     if output_dir.exists():
         shutil.rmtree(output_dir)
 
+    # Fix all random seeds so the augmented images are identical on every run.
+    keras.utils.set_random_seed(seed)
     augmentation = build_augmentation(data_cfg)
     center_crop = layers.CenterCrop(height, width)
 

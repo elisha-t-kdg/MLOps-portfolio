@@ -63,7 +63,14 @@ def data_cfg(tmp_path):
         "image_width": 180,
         "load_padding": 20,
         "split": {"train": 0.7, "val": 0.15, "test": 0.15},
-        "augmentation": {"copies_per_image": 2, "rotation": 0.2},
+        "augmentation": {
+            "copies_per_image": 2,
+            "flip": "horizontal",
+            "rotation": 0.2,
+            "zoom": 0.2,
+            "brightness": 0.2,
+            "contrast": 0.2,
+        },
     })
 
 
@@ -90,3 +97,11 @@ def test_no_image_leaks_between_splits(data_cfg):
     assert not originals("train") & originals("val")
     assert not originals("train") & originals("test")
     assert not originals("val") & originals("test")
+
+def test_augmentation_is_reproducible(data_cfg):
+    def read_all(output_dir):
+        return {p.relative_to(output_dir): p.read_bytes() for p in output_dir.rglob("*.jpg")}
+
+    first = read_all(augment_and_save_dataset(data_cfg, seed=123))
+    second = read_all(augment_and_save_dataset(data_cfg, seed=123))
+    assert first == second
