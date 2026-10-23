@@ -1,0 +1,14 @@
+md5: bc1f586d9478e615f13165d234244f09
+frozen: true
+deps:
+- path: flower_photos
+  repo:
+    url: https://github.com/elisha-t-kdg/flower-data
+    rev: v1.0
+    rev_lock: bf29a585fc8b72e1532cd7ca95cf6e7862485ffc
+outs:
+- md5: 55cc0c7798445a0127aa208920a762bc.dir
+  size: 232870184
+  nfiles: 3671
+  hash: md5
+  path: flower_photos
