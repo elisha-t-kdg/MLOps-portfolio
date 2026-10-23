@@ -1,19 +1,21 @@
-import cv2
-import numpy as np
-import tensorflow as tf
-import hydra
+"""Transfer-learning flower classification model based on MobileNetV2: build, train and predict."""
+
 import pathlib
 
-from omegaconf import DictConfig
-from tensorflow import keras
+import cv2
+import hydra
+import numpy as np
+import tensorflow as tf
 from keras.layers import Dense
 from keras.optimizers import Adam
+from omegaconf import DictConfig
+from tensorflow import keras
 
 from flower_classifier.flower_data import load_datasets
 
 
 def build_model(model_cfg):
-    """Build and compile the transfer-learning model based on MobileNetV2 (a much smaller/lighter backbone than ResNet101)."""
+    """Build and compile a transfer-learning model on a frozen MobileNetV2 backbone."""
     imported_model = tf.keras.applications.MobileNetV2(
         include_top=False,
         input_shape=tuple(model_cfg.input_shape),

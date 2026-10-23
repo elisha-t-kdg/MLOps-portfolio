@@ -1,11 +1,13 @@
+"""Data pipeline: split the raw flower photos into train/val/test and augment the train set."""
+
 import pathlib
-import cv2
-import numpy as np
-import tensorflow as tf
-import hydra
 import random
 import shutil
 
+import cv2
+import hydra
+import numpy as np
+import tensorflow as tf
 from omegaconf import DictConfig
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -18,6 +20,7 @@ def build_augmentation(data_cfg):
         layers.RandomCrop(data_cfg.image_height, data_cfg.image_width),
     ], name="data_augmentation")
 
+
 def split_images(image_paths, split_cfg, seed):
     """Shuffle the images of one class and split them into train, validation and test lists."""
     paths = sorted(image_paths)
@@ -27,6 +30,7 @@ def split_images(image_paths, split_cfg, seed):
     n_val = int(len(paths) * split_cfg.val)
 
     return paths[:n_train], paths[n_train:n_train + n_val], paths[n_train + n_val:]
+
 
 def augment_and_save_dataset(data_cfg, seed):
     """Split the original images into train/val/test, ONLY THEN, expand the train set.
@@ -52,7 +56,8 @@ def augment_and_save_dataset(data_cfg, seed):
 
     class_dirs = [d for d in flowers_data.iterdir() if d.is_dir()]
     for class_dir in class_dirs:
-        train_paths, val_paths, test_paths = split_images(list(class_dir.glob('*')), data_cfg.split, seed)
+        train_paths, val_paths, test_paths = split_images(
+            list(class_dir.glob('*')), data_cfg.split, seed)
         splits = {"train": train_paths, "val": val_paths, "test": test_paths}
 
         for split_name, image_paths in splits.items():
