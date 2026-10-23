@@ -62,11 +62,11 @@ def predict_image(dnn_model, image_path, image_cat, height, width):
 @hydra.main(version_base="1.3", config_path="../../conf", config_name="config")
 def main(cfg: DictConfig):
     """Train the model on the processed dataset and predict one sample image."""
-    train_set, validation_set, image_cat = load_datasets(cfg.data, cfg.seed)
+    train_set, validation_set, test_set, image_cat = load_datasets(cfg.data, cfg.seed)
     dnn_model = build_model(cfg.model)
     train_model(dnn_model, train_set, validation_set, cfg.model.epochs)
 
-    sample_image = list((pathlib.Path(cfg.data.processed_dir) / 'sunflowers').glob('*'))[1]
+    sample_image = list((pathlib.Path(cfg.data.processed_dir) / 'test' / 'sunflowers').glob('*'))[1]
     predict_image(dnn_model, sample_image, image_cat, cfg.data.image_height, cfg.data.image_width)
 
 
