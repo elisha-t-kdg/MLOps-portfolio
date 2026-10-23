@@ -4,13 +4,15 @@ import pathlib
 
 import cv2
 import hydra
+import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import tensorflow as tf
+import yaml
 from keras.layers import Dense, Rescaling
 from keras.optimizers import Adam
 from omegaconf import DictConfig, OmegaConf
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay, classification_report, confusion_matrix
 from tensorflow import keras
 
 from flower_classifier.flower_data import load_datasets
@@ -96,6 +98,44 @@ def log_training_history(history):
         )
 
 
+def plot_training_history(history):
+    """Plot the training and validation loss and accuracy per epoch."""
+    epochs = range(1, len(history.history["loss"]) + 1)
+    fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(10, 4))
+
+    ax_loss.plot(epochs, history.history["loss"], marker="o", label="train")
+    ax_loss.plot(epochs, history.history["val_loss"], marker="o", label="validation")
+    ax_loss.set(title="Loss", xlabel="epoch", ylabel="loss", xticks=list(epochs))
+    ax_loss.legend()
+
+    ax_acc.plot(epochs, history.history["accuracy"], marker="o", label="train")
+    ax_acc.plot(epochs, history.history["val_accuracy"], marker="o", label="validation")
+    ax_acc.set(title="Accuracy", xlabel="epoch", ylabel="accuracy", xticks=list(epochs))
+    ax_acc.legend()
+
+    fig.tight_layout()
+    return fig
+
+
+def plot_confusion_matrix(matrix, image_cat):
+    """Plot the confusion matrix as a heatmap (rows = true class, columns = predicted class)."""
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ConfusionMatrixDisplay(matrix, display_labels=image_cat).plot(
+        ax=ax, cmap="Blues", colorbar=False, xticks_rotation=45
+    )
+    ax.set_title("Confusion matrix (test set)")
+    fig.tight_layout()
+    return fig
+
+
+def get_data_version(processed_dir):
+    """Return the DVC hash of the processed dataset, read from its .dvc file."""
+    dvc_file = pathlib.Path(f"{processed_dir}.dvc")
+    if not dvc_file.exists():
+        return "untracked"
+    return yaml.safe_load(dvc_file.read_text())["outs"][0]["md5"]
+
+
 def predict_image(dnn_model, image_path, image_cat, height, width):
     """Run inference on a single image and print the predicted category."""
     image = cv2.imread(str(image_path))
@@ -116,25 +156,36 @@ def predict_image(dnn_model, image_path, image_cat, height, width):
 
 @hydra.main(version_base="1.3", config_path="../../conf", config_name="config")
 def main(cfg: DictConfig):
-    """Train and evaluate the model, and track the run (params + metrics) in MLflow."""
+    """Train and evaluate the model, and track params, metrics, plots and model in MLflow."""
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
     mlflow.set_experiment(cfg.mlflow.experiment_name)
 
     with mlflow.start_run():
         mlflow.log_params(flatten_config(OmegaConf.to_container(cfg, resolve=True)))
+        mlflow.set_tag("data_version", get_data_version(cfg.data.processed_dir))
 
         train_set, validation_set, test_set, image_cat = load_datasets(cfg.data, cfg.seed)
         dnn_model = build_model(cfg.model)
         history = train_model(dnn_model, train_set, validation_set, cfg.model.epochs)
         log_training_history(history)
+        mlflow.log_figure(plot_training_history(history), "plots/training_history.png")
 
         results = evaluate_model(dnn_model, test_set, image_cat)
         mlflow.log_metrics({
             "test_loss": float(results["test_loss"]),
             "test_accuracy": float(results["test_accuracy"]),
         })
+        mlflow.log_figure(
+            plot_confusion_matrix(results["confusion_matrix"], image_cat),
+            "plots/confusion_matrix.png",
+        )
+        mlflow.log_text(results["report"], "classification_report.txt")
+        plt.close("all")
 
-        sample_image = list((pathlib.Path(cfg.data.processed_dir) / 'test' / 'sunflowers').glob('*'))[1]
+        mlflow.keras.log_model(dnn_model, name="model")
+
+        test_dir = pathlib.Path(cfg.data.processed_dir) / "test"
+        sample_image = next((test_dir / "sunflowers").glob("*"))
         predict_image(dnn_model, sample_image, image_cat, cfg.data.image_height, cfg.data.image_width)
 
 
