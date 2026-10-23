@@ -4,3 +4,7 @@ defaults:
   - _self_
 
 seed: 123
+
+mlflow:
+  tracking_uri: http://127.0.0.1:8080
+  experiment_name: flower-classifier

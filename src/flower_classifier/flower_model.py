@@ -8,9 +8,10 @@ import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Rescaling
 from keras.optimizers import Adam
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from sklearn.metrics import classification_report, confusion_matrix
 from tensorflow import keras
+import mlflow
 
 from flower_classifier.flower_data import load_datasets
 
@@ -49,6 +50,7 @@ def train_model(dnn_model, train_set, validation_set, epochs):
     )
     return history
 
+
 def evaluate_model(dnn_model, test_set, image_cat):
     """Evaluate the trained model on the held-out test set.
 
@@ -74,9 +76,31 @@ def evaluate_model(dnn_model, test_set, image_cat):
     }
 
 
+def flatten_config(config, parent_key=""):
+    """Flatten a nested config dict into {"model.learning_rate": 0.001, ...} for MLflow."""
+    flat = {}
+    for key, value in config.items():
+        full_key = f"{parent_key}.{key}" if parent_key else key
+        if isinstance(value, dict):
+            flat.update(flatten_config(value, full_key))
+        else:
+            flat[full_key] = value
+    return flat
+
+
+def log_training_history(history):
+    """Log the loss and accuracy of every epoch to MLflow, so the curves show up in the UI."""
+    for epoch in range(len(history.history["loss"])):
+        mlflow.log_metrics(
+            {name: values[epoch] for name, values in history.history.items()}, step=epoch
+        )
+
+
 def predict_image(dnn_model, image_path, image_cat, height, width):
     """Run inference on a single image and print the predicted category."""
     image = cv2.imread(str(image_path))
+    if image is None:
+        raise ValueError(f"Could not read image: {image_path}")
     # OpenCV reads images as BGR, but the model was trained on RGB images (Keras loader).
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image_resized = cv2.resize(image, (width, height))
@@ -92,14 +116,26 @@ def predict_image(dnn_model, image_path, image_cat, height, width):
 
 @hydra.main(version_base="1.3", config_path="../../conf", config_name="config")
 def main(cfg: DictConfig):
-    """Train the model on the processed dataset and predict one sample image."""
-    train_set, validation_set, test_set, image_cat = load_datasets(cfg.data, cfg.seed)
-    dnn_model = build_model(cfg.model)
-    train_model(dnn_model, train_set, validation_set, cfg.model.epochs)
-    evaluate_model(dnn_model, test_set, image_cat)
+    """Train and evaluate the model, and track the run (params + metrics) in MLflow."""
+    mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
+    mlflow.set_experiment(cfg.mlflow.experiment_name)
 
-    sample_image = list((pathlib.Path(cfg.data.processed_dir) / 'test' / 'sunflowers').glob('*'))[1]
-    predict_image(dnn_model, sample_image, image_cat, cfg.data.image_height, cfg.data.image_width)
+    with mlflow.start_run():
+        mlflow.log_params(flatten_config(OmegaConf.to_container(cfg, resolve=True)))
+
+        train_set, validation_set, test_set, image_cat = load_datasets(cfg.data, cfg.seed)
+        dnn_model = build_model(cfg.model)
+        history = train_model(dnn_model, train_set, validation_set, cfg.model.epochs)
+        log_training_history(history)
+
+        results = evaluate_model(dnn_model, test_set, image_cat)
+        mlflow.log_metrics({
+            "test_loss": float(results["test_loss"]),
+            "test_accuracy": float(results["test_accuracy"]),
+        })
+
+        sample_image = list((pathlib.Path(cfg.data.processed_dir) / 'test' / 'sunflowers').glob('*'))[1]
+        predict_image(dnn_model, sample_image, image_cat, cfg.data.image_height, cfg.data.image_width)
 
 
 if __name__ == "__main__":
