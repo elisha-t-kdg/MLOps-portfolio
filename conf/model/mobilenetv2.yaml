@@ -1,0 +1,11 @@
+input_shape:
+  - ${data.image_height}
+  - ${data.image_width}
+  - 3
+weights: imagenet
+pooling: avg
+trainable_backbone: false
+dense_units: 512
+num_classes: 5
+learning_rate: 0.001
+epochs: 10

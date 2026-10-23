@@ -1,0 +1,13 @@
+raw_dir: data/raw/flower_photos      # imported with DVC from flower-data
+processed_dir: data/processed         # split + augmented output
+image_height: 180
+image_width: 180
+load_padding: 20                      # load images 20px larger so RandomCrop has room
+batch_size: 32
+split:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+augmentation:
+  copies_per_image: 5
+  rotation: 0.2

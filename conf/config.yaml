@@ -1,0 +1,6 @@
+defaults:
+  - data: flowers
+  - model: mobilenetv2
+  - _self_
+
+seed: 123
