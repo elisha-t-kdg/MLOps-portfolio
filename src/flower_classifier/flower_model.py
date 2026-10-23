@@ -6,7 +6,7 @@ import cv2
 import hydra
 import numpy as np
 import tensorflow as tf
-from keras.layers import Dense
+from keras.layers import Dense, Rescaling
 from keras.optimizers import Adam
 from omegaconf import DictConfig
 from tensorflow import keras
@@ -27,8 +27,10 @@ def build_model(model_cfg):
     imported_model.summary()
 
     dnn_model = keras.Sequential()
+    dnn_model.add(keras.Input(shape=tuple(model_cfg.input_shape)))
+    # MobileNetV2 was trained on pixels in [-1, 1]; our images are in [0, 255].
+    dnn_model.add(Rescaling(1.0 / 127.5, offset=-1.0))
     dnn_model.add(imported_model)
-    # dnn_model.add(Flatten())
     dnn_model.add(Dense(model_cfg.dense_units, activation='relu'))
     dnn_model.add(Dense(model_cfg.num_classes, activation='softmax'))
 
@@ -50,6 +52,8 @@ def train_model(dnn_model, train_set, validation_set, epochs):
 def predict_image(dnn_model, image_path, image_cat, height, width):
     """Run inference on a single image and print the predicted category."""
     image = cv2.imread(str(image_path))
+    # OpenCV reads images as BGR, but the model was trained on RGB images (Keras loader).
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image_resized = cv2.resize(image, (width, height))
     image = np.expand_dims(image_resized, axis=0)
     print(image.shape)
