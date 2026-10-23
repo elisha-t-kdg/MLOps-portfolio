@@ -20,6 +20,8 @@ dependencies = [
     "mlflow",
     "dvc",
     "scikit-learn",
+    "matplotlib",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
@@ -36,7 +38,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-addopts = "--cov=flower_classifier --cov-report=term-missing"
+addopts = "--cov=flower_classifier --cov-report=term-missing --cov-fail-under=75"
 
 [tool.ruff]
 line-length = 110

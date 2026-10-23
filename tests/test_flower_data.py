@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from omegaconf import OmegaConf
 
-from flower_classifier.flower_data import augment_and_save_dataset, split_images
+from flower_classifier.flower_data import augment_and_save_dataset, load_datasets, split_images
 
 SPLIT_CFG = OmegaConf.create({"train": 0.7, "val": 0.15, "test": 0.15})
 
@@ -105,3 +105,12 @@ def test_augmentation_is_reproducible(data_cfg):
     first = read_all(augment_and_save_dataset(data_cfg, seed=123))
     second = read_all(augment_and_save_dataset(data_cfg, seed=123))
     assert first == second
+
+def test_load_datasets_returns_three_splits(data_cfg):
+    augment_and_save_dataset(data_cfg, seed=123)
+    data_cfg.batch_size = 4
+    train_set, val_set, test_set, class_names = load_datasets(data_cfg, seed=123)
+
+    assert class_names == ["daisy", "roses"]
+    assert sum(len(labels) for _, labels in train_set) == 2 * 7 * 3
+    assert sum(len(labels) for _, labels in test_set) == 2 * 2
