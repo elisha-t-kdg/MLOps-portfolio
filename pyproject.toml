@@ -19,6 +19,7 @@ dependencies = [
     "hydra-core",
     "mlflow",
     "dvc",
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]

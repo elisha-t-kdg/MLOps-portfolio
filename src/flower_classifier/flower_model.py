@@ -9,6 +9,7 @@ import tensorflow as tf
 from keras.layers import Dense, Rescaling
 from keras.optimizers import Adam
 from omegaconf import DictConfig
+from sklearn.metrics import classification_report, confusion_matrix
 from tensorflow import keras
 
 from flower_classifier.flower_data import load_datasets
@@ -48,6 +49,30 @@ def train_model(dnn_model, train_set, validation_set, epochs):
     )
     return history
 
+def evaluate_model(dnn_model, test_set, image_cat):
+    """Evaluate the trained model on the held-out test set.
+
+    Returns the test loss and accuracy, the confusion matrix and a per-class report.
+    """
+    test_loss, test_accuracy = dnn_model.evaluate(test_set)
+
+    # test_set is not shuffled, so labels and predictions are in the same order.
+    y_true = np.concatenate([labels.numpy() for _, labels in test_set])
+    y_pred = np.argmax(dnn_model.predict(test_set), axis=1)
+
+    matrix = confusion_matrix(y_true, y_pred)
+    report = classification_report(y_true, y_pred, target_names=image_cat, digits=3)
+
+    print(f"Test accuracy: {test_accuracy:.4f}")
+    print(report)
+    print(matrix)
+    return {
+        "test_loss": test_loss,
+        "test_accuracy": test_accuracy,
+        "confusion_matrix": matrix,
+        "report": report,
+    }
+
 
 def predict_image(dnn_model, image_path, image_cat, height, width):
     """Run inference on a single image and print the predicted category."""
@@ -71,6 +96,7 @@ def main(cfg: DictConfig):
     train_set, validation_set, test_set, image_cat = load_datasets(cfg.data, cfg.seed)
     dnn_model = build_model(cfg.model)
     train_model(dnn_model, train_set, validation_set, cfg.model.epochs)
+    evaluate_model(dnn_model, test_set, image_cat)
 
     sample_image = list((pathlib.Path(cfg.data.processed_dir) / 'test' / 'sunflowers').glob('*'))[1]
     predict_image(dnn_model, sample_image, image_cat, cfg.data.image_height, cfg.data.image_width)
