@@ -39,7 +39,7 @@ testpaths = ["tests"]
 addopts = "--cov=flower_classifier --cov-report=term-missing"
 
 [tool.ruff]
-line-length = 100
+line-length = 110
 target-version = "py313"
 src = ["src", "tests"]
 

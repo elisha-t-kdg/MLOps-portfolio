@@ -4,6 +4,7 @@ import pathlib
 
 import cv2
 import hydra
+import mlflow
 import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Rescaling
@@ -11,7 +12,6 @@ from keras.optimizers import Adam
 from omegaconf import DictConfig, OmegaConf
 from sklearn.metrics import classification_report, confusion_matrix
 from tensorflow import keras
-import mlflow
 
 from flower_classifier.flower_data import load_datasets
 
